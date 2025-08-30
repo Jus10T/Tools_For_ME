@@ -51,6 +51,7 @@ energy_factors = {
     'kilowatt-hours': 3600000,
         }
 time_factors = {
+    'millisecond': 0.01,
     'second': 1, 
     'minute': 60,
     'hour': 3600,

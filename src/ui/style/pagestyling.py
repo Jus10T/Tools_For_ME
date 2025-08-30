@@ -125,6 +125,12 @@ def set_lineEdit_style(widget):
             border-bottom: 1px solid #ff8c00;
 
         }
+        QLineEdit#poi_lineEdit {
+            padding: 10px;
+            font-size: 20px;
+            border-bottom: 1px solid #ff8c00;
+
+        }
     """
     widget.setStyleSheet(line_edit_style)
 
@@ -146,6 +152,10 @@ def setLabelStyle(widget):
 
         }
         QLabel#inertia_label {
+            font-size: 12px;
+
+        }
+        QLabel#poi_label {
             font-size: 12px;
 
         }
@@ -247,6 +257,26 @@ def setButtonStyle(widget):
             background-color: #ff8c00;
             border: 1px solid white;
         }
+
+        QPushButton#runbutton {
+            background-color: #ff8c00;
+            font-weight: bold;
+        }
+        QPushButton#runbutton:hover {
+            background-color: #ff8c00;
+            border: 1px solid white;
+        }
+
+        QPushButton#clearbutton {
+            background-color: red;
+            font-weight: bold;
+        }
+        QPushButton#clearbutton:hover {
+            background-color: red;
+            border: 1px solid white;
+        }
+        
+        
 
 """
     widget.setStyleSheet(button_style)

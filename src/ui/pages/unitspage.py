@@ -147,7 +147,7 @@ class UnitSolverPage(QWidget):
                        "Temperature": ['celsius', 'fahrenheit', 'kelvin', 'rankine'],
                        "Pressure / Stress": ['atmospheres', 'bars', 'pascals', 'kilopascals', 'megapascals', 'pounds/inches²','kips/inches²', 'torr' ], 
                        "Energy" : [ 'joules', 'kilojoules', 'foot-pound', 'british thermal unit', 'calories', 'kilowatt-hours'],
-                       "Time": ['seconds', 'minutes', 'hours', 'days', 'weeks'],
+                       "Time": ['milliseconds','seconds', 'minutes', 'hours', 'days', 'weeks'],
                        "Moment of Inertia (I)": ['millimeters⁴', 'meters⁴', 'inches⁴', 'feet⁴']
                        }
         

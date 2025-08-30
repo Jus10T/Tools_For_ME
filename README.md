@@ -135,13 +135,12 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 - Additional reference materials
 - Documentation enhancements
 
-## License
 
-[Specify your license here]
 
 ## Contact
 
-[Your contact information]
+@tylerjus10@gmail.com
+https://www.linkedin.com/in/justin-tyler-913ab834a/
 
 ---
 

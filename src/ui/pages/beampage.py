@@ -2,7 +2,7 @@ import numpy as np
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QComboBox, QFrame, QDialogButtonBox,
                              QLineEdit, QHBoxLayout, QFormLayout, QPushButton, QDialog, QButtonGroup,
                              QTableWidget, QTableWidgetItem, QHeaderView)
-from PyQt6.QtGui import QPainter, QPen, QBrush, QColor, QPolygonF, QIcon, QPixmap
+from PyQt6.QtGui import QPainter, QPen, QBrush, QColor, QPolygonF, QIcon, QPixmap, QDoubleValidator
 
 from PyQt6.QtCore import Qt, QPointF, QRectF, pyqtSignal, QSize
 
@@ -55,7 +55,7 @@ class BeamPage(QWidget):
         model_setup_layout = QVBoxLayout()
 
         #model header
-        model_header = QLabel("Beam Model:")
+        model_header = QLabel("Beam Model:  x -->")
         model_header.setObjectName("modelheader")
         setLabelStyle(model_header)
 
@@ -80,6 +80,7 @@ class BeamPage(QWidget):
 
         self.length_lineEdit = QLineEdit()
         set_lineEdit_style(self.length_lineEdit)
+        self.length_lineEdit.setValidator(QDoubleValidator())
         self.length_lineEdit.setObjectName("length_lineEdit")
         self.length_lineEdit.setMaximumWidth(300)
         length_layout.addWidget(self.length_lineEdit)
@@ -103,6 +104,7 @@ class BeamPage(QWidget):
 
         self.modulus_lineEdit = QLineEdit()
         set_lineEdit_style(self.modulus_lineEdit)
+        self.modulus_lineEdit.setValidator(QDoubleValidator())
         self.modulus_lineEdit.setObjectName("modulus_lineEdit")
         self.modulus_lineEdit.setMaximumWidth(300)
         modulus_layout.addWidget(self.modulus_lineEdit)
@@ -126,6 +128,7 @@ class BeamPage(QWidget):
 
         self.inertia_lineEdit = QLineEdit()
         set_lineEdit_style(self.inertia_lineEdit)
+        self.inertia_lineEdit.setValidator(QDoubleValidator())
         self.inertia_lineEdit.setObjectName("inertia_lineEdit")
         self.inertia_lineEdit.setMaximumWidth(300)
         inertia_layout.addWidget(self.inertia_lineEdit)
@@ -135,6 +138,29 @@ class BeamPage(QWidget):
         inertia_layout.addWidget(self.inertia_unit_label)
 
         inertia_layout.addStretch()
+
+        #poi
+
+        poi_layout = QHBoxLayout()
+
+        self.poi_label = QLabel("Point of Interest")
+        setLabelStyle(self.poi_label)
+        self.poi_label.setObjectName("poi_label")
+        self.poi_label.setFixedSize(160, 50)
+        poi_layout.addWidget(self.poi_label)
+
+        self.poi_lineEdit = QLineEdit()
+        set_lineEdit_style(self.poi_lineEdit)
+        self.poi_lineEdit.setValidator(QDoubleValidator())
+        self.poi_lineEdit.setObjectName("poi_lineEdit")
+        self.poi_lineEdit.setMaximumWidth(300)
+        poi_layout.addWidget(self.poi_lineEdit)
+
+        self.poi_unit_label = QLabel()
+        setLabelStyle(self.poi_unit_label)
+        poi_layout.addWidget(self.poi_unit_label)
+
+        poi_layout.addStretch()
 
         #make button
         self.make_beam = QPushButton("MAKE")
@@ -152,6 +178,7 @@ class BeamPage(QWidget):
         model_setup_layout.addLayout(length_layout)
         model_setup_layout.addLayout(modulus_layout)
         model_setup_layout.addLayout(inertia_layout)
+        model_setup_layout.addLayout(poi_layout)
         model_setup_layout.addSpacing(25)
         model_setup_layout.addWidget(self.make_beam)
         model_setup_layout.addStretch(stretch=1)
@@ -293,25 +320,28 @@ class BeamPage(QWidget):
         beam_layout.addWidget(self.beam_unit_drop)
         beam_layout.addLayout(self.info_layout)
 
-        self.beam_unit_drop.currentTextChanged.connect(self.update_beam_labels)
-        self.update_beam_labels(self.beam_unit_drop.currentText())
-        
         # Initialize empty beam table
         self.create_empty_beam_table()
+
+        self.beam_unit_drop.currentTextChanged.connect(self.update_beam_labels)
+        self.update_beam_labels(self.beam_unit_drop.currentText())
 
         #below table
         model_buttons_layout = QHBoxLayout()
 
         #RUN BUTTON
         self.run_btn = QPushButton("RUN")
+        self.run_btn.setObjectName("runbutton")
         setButtonStyle(self.run_btn)
         model_buttons_layout.addWidget(self.run_btn)
         self.run_btn.clicked.connect(self.run_analysis)
 
         #clear button
         self.clear_button = QPushButton("CLEAR")
+        self.clear_button.setObjectName("clearbutton")
         setButtonStyle(self.clear_button)
         model_buttons_layout.addWidget(self.clear_button)
+        self.clear_button.clicked.connect(self.clear_beam_model_and_ui)
 
         #add to table layout
         self.table_layout.addWidget(self.beam_table_header)
@@ -337,29 +367,56 @@ class BeamPage(QWidget):
         length_unit = list(units['Length'].values())[0]
         modulus_unit = list(units['Elastic Modulus'].values())[0]
         inertia_unit = list(units['Moment of Inertia'].values())[0]
+        point_load_unit = list(units['PointLoad'].values())[0]
         self.length_unit_label.setText(f"[ {length_unit} ]")
         self.modulus_unit_label.setText(f"[ {modulus_unit} ]")
         self.inertia_unit_label.setText(f"[ {inertia_unit} ]")
+        self.poi_unit_label.setText(f"[ {length_unit} ]")
+        self.beam_table.setHorizontalHeaderLabels([f'Location [ {length_unit} ]', f'Magnitude [ {point_load_unit} ]', 'Support', 'Load'])
+
+    def show_error_dialog(self, message):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Error")
+        layout = QVBoxLayout()
+        label = QLabel(message)
+        layout.addWidget(label)
+        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
+        button_box.accepted.connect(dialog.accept)
+        layout.addWidget(button_box)
+        dialog.setLayout(layout)
+        dialog.exec()
 
     def open_pinned_support_dialog(self):
+        if not hasattr(self, 'beam_model') or self.beam_model is None:
+            self.show_error_dialog('no active beam model yet')
+            return
         unit_system = self.beam_unit_drop.currentText()
         dialog = pinnedSupportDialogue(unit_system, self.beam_model)
         dialog.exec()
         self.make_beam_table()
 
     def open_roller_support_dialog(self):
+        if not hasattr(self, 'beam_model') or self.beam_model is None:
+            self.show_error_dialog('no active beam model yet')
+            return
         unit_system = self.beam_unit_drop.currentText()
         dialog = rollerSupportDialogue(unit_system, self.beam_model)
         dialog.exec()
         self.make_beam_table()
 
     def open_fixed_support_dialog(self):
+        if not hasattr(self, 'beam_model') or self.beam_model is None:
+            self.show_error_dialog('no active beam model yet')
+            return
         unit_system = self.beam_unit_drop.currentText()
         dialog = fixedSupportDialogue(unit_system, self.beam_model)
         dialog.exec()
         self.make_beam_table()
 
     def open_pointload_dialog(self):
+        if not hasattr(self, 'beam_model') or self.beam_model is None:
+            self.show_error_dialog('no active beam model yet')
+            return
         unit_system = self.beam_unit_drop.currentText()
 
         dialog = addPointLoadDialogue(unit_system, self.beam_model)  
@@ -367,6 +424,9 @@ class BeamPage(QWidget):
         self.make_beam_table()  
 
     def open_momentload_dialog(self):
+        if not hasattr(self, 'beam_model') or self.beam_model is None:
+            self.show_error_dialog('no active beam model yet')
+            return
         unit_system = self.beam_unit_drop.currentText()
 
         dialog = addMomentLoadDialogue(unit_system, self.beam_model)
@@ -374,6 +434,9 @@ class BeamPage(QWidget):
         self.make_beam_table()
 
     def open_distload_dialog(self):
+        if not hasattr(self, 'beam_model') or self.beam_model is None:
+            self.show_error_dialog('no active beam model yet')
+            return
         unit_system = self.beam_unit_drop.currentText()
 
         dialog = addDistLoadDialogue(unit_system, self.beam_model)
@@ -384,7 +447,6 @@ class BeamPage(QWidget):
         """Create an empty beam table that shows when the page loads"""
         self.beam_table = QTableWidget()
         self.beam_table.setColumnCount(4)
-        self.beam_table.setHorizontalHeaderLabels(['Location', 'Magnitude', 'Support', 'Load'])
         self.beam_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.beam_table.setRowCount(0)  # Start with no rows
         self.beam_table.setMaximumHeight(800) 
@@ -477,6 +539,7 @@ class BeamPage(QWidget):
         length_text = self.length_lineEdit.text()
         modulus_text = self.modulus_lineEdit.text()
         inertia_text = self.inertia_lineEdit.text()
+        poi_text = self.poi_lineEdit.text()
         unit_sys = self.beam_unit_drop.currentText()
 
         #error handling
@@ -503,14 +566,22 @@ class BeamPage(QWidget):
         except ValueError:
             errors.append("Moment of Inertia must be a number.")
 
+        poi = None
+        if poi_text:
+            try:
+                poi = float(poi_text)
+                if not (0 < poi < length):
+                    errors.append("Point of Interest must be within the beam's length.")
+            except ValueError:
+                errors.append("Point of Interest must be a number.")
+
         # You may want to add a default or input for num_elements
         num_elements = 4  # Example default, or get from an input
 
         if errors:
-            # Show error message (replace with your preferred method)
-            print("Beam model creation failed:")
-            for err in errors:
-                print(" -", err)
+            # Show error message using dialog popup
+            error_message = "Beam model creation failed:\n\n" + "\n".join(f"• {err}" for err in errors)
+            self.show_error_dialog(error_message)
             return
 
         EI = modulus * inertia
@@ -521,7 +592,7 @@ class BeamPage(QWidget):
         min_elements = 10
         num_elements = max(int(length / target_element_length), min_elements)
 
-        self.beam_model = BeamModel(length, num_elements, EI, unit_sys)
+        self.beam_model = BeamModel(length, num_elements, EI, unit_sys, poi=poi)
         self.make_beam_table()
         self.update_beam_table_header()
         print(f"Beam model created with {num_elements} elements!")
@@ -533,6 +604,24 @@ class BeamPage(QWidget):
         else:
             self.beam_table_header.setText(f"BEAM MODEL IS {self.beam_model.length} [{length_unit}] LONG")
 
+    def clear_beam_model_and_ui(self):
+        """Clears the beam model, input fields, and the table."""
+        self.beam_model = None
+
+        # Clear input fields
+        self.length_lineEdit.clear()
+        self.modulus_lineEdit.clear()
+        self.inertia_lineEdit.clear()
+        self.poi_lineEdit.clear()
+
+        # Clear the table
+        self.beam_table.setRowCount(0)
+
+        # Update header
+        self.update_beam_table_header()
+
+        print("Beam model and UI cleared.")
+
     
 
 
@@ -541,7 +630,7 @@ class BeamPage(QWidget):
 
 
 class BeamModel:
-    def __init__(self, length, num_elements, EI, unit_sys):
+    def __init__(self, length, num_elements, EI, unit_sys, poi=None):
         self.length = length
         self.num_elements = num_elements
         self.EI = EI 
@@ -553,6 +642,9 @@ class BeamModel:
             BeamElement(i, self.nodes[i], self.nodes[i + 1], EI, length / num_elements)
             for i in range(num_elements)
         ]
+
+        if poi is not None:
+            self.insert_node_at_position(poi)
 
         self.supports = {} #node_index: 'fixed'/'pinned'/'roller'
         self.point_loads = {} # dof_index: load
@@ -752,77 +844,6 @@ class BeamElement:
 
 
 
-#class BeamCanvas(QWidget):
- #   def __init__(self, beam_model):
-  #      super().__init__()
-   #     self.beam_model = beam_model
-    #    self.setMinimumSize(800,400)
-     #   self.setStyleSheet("background-color: white;")
-#
- #       # Canvas parameters
-  #      self.margin = 80
-   #     self.beam_height = 40
-    #    self.support_size = 30
-     #   self.load_arrow_length = 60
-      #  self.moment_radius = 25
-#
- #   def paintEvent(self, event):
-  #      painter = QPainter(self)
-   #     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-    #    #calculate drawing parameters
-     #   self.calculate_drawing_params()
-      #  self.draw_beam()
-
-
-
-    #def calculate_drawing_params(self):
-    #    """Calculate drawing parameters to maintain consistent beam length on screen"""
-     #   available_width = self.width() - 2 * self.margin
-      #  self.beam_length_pixels = available_width
-       # 
-        # Scale factor: pixels per unit length
-        #if self.beam_model.length > 0:
-         #   self.scale_factor = self.beam_length_pixels / self.beam_model.length
-        #else:
-         #   self.scale_factor = 1.0
-            
-        # Beam position on canvas
-        #self.beam_start_x = self.margin
-        #self.beam_end_x = self.beam_start_x + self.beam_length_pixels
-        #self.beam_y = self.height() // 2
-
-
-    #def world_to_canvas(self, position):
-     #   """Convert world coordinates to canvas coordinates"""
-      #  canvas_x = self.beam_start_x + (position * self.scale_factor)
-       # return canvas_x
-    
-    #def canvas_to_world(self, canvas_x):
-     #   """Convert canvas coordinates to world coordinates"""
-      #  world_x = (canvas_x - self.beam_start_x) / self.scale_factor
-       # return max(0, min(self.beam_model.length, world_x))
-    
-    
-    #def draw_beam(self, painter):
-     #   """Draw the main beam"""
-      #  pen = QPen(QColor(0, 0, 0), 3)
-       # painter.setPen(pen)
-        #brush = QBrush(QColor(220, 220, 220))
-        #painter.setBrush(brush)
-        
-        # Draw beam rectangle
-        #beam_rect = QRectF(
-         #   self.beam_start_x, 
-          #  self.beam_y - self.beam_height // 2,
-           # self.beam_length_pixels, 
-            #self.beam_height
-        #)
-        #painter.drawRect(beam_rect)
-
-    #def update_beam_model(self):
-     #   """Called when beam model parameters change"""
-      #  self.update()
         
 
 

@@ -52,13 +52,16 @@ class pinnedSupportDialogue(QDialog):
         print("DEBUG: accept called")
         text = self.pin_support_location_input.text()
         if not text:
-            # Show error message or just return
-            print("Error: Location input is required.")
+            QMessageBox.critical(self, "Input Error", "Location input is required.")
             return
         try:
             x_pos = float(text)
         except ValueError:
-            print("Error: Location must be a number.")
+            QMessageBox.critical(self, "Input Error", "Location must be a number.")
+            return
+
+        if not (0 <= x_pos <= self.beam_model.length):
+            QMessageBox.critical(self, "Input Error", f"Location must be between 0 and {self.beam_model.length}.")
             return
 
         support_type = "pinned"
@@ -114,13 +117,16 @@ class rollerSupportDialogue(QDialog):
         print("DEBUG: accept called")
         text = self.roller_support_location_input.text()
         if not text:
-            # Show error message or just return
-            print("Error: Location input is required.")
+            QMessageBox.critical(self, "Input Error", "Location input is required.")
             return
         try:
             x_pos = float(text)
         except ValueError:
-            print("Error: Location must be a number.")
+            QMessageBox.critical(self, "Input Error", "Location must be a number.")
+            return
+
+        if not (0 <= x_pos <= self.beam_model.length):
+            QMessageBox.critical(self, "Input Error", f"Location must be between 0 and {self.beam_model.length}.")
             return
 
         support_type = "roller"
@@ -269,18 +275,20 @@ class addPointLoadDialogue(QDialog):
         location_text = self.pointload_location_input.text()
         magnitude_text = self.pointload_mag_input.text()
         if not location_text:
-            # Show error message or just return
-            print("Error: Location input is required.")
+            QMessageBox.critical(self, "Input Error", "Location input is required.")
             return
         if not magnitude_text:
-            # Show error message or just return
-            print("Error: Magnitude input is required.")
+            QMessageBox.critical(self, "Input Error", "Magnitude input is required.")
             return
         try:
             x_pos = float(location_text)
             magnitude = float(magnitude_text)
         except ValueError:
-            print("Error: Location and Magnitude must be a number.")
+            QMessageBox.critical(self, "Input Error", "Location and Magnitude must be a number.")
+            return
+
+        if not (0 <= x_pos <= self.beam_model.length):
+            QMessageBox.critical(self, "Input Error", f"Location must be between 0 and {self.beam_model.length}.")
             return
 
         
@@ -361,18 +369,20 @@ class addMomentLoadDialogue(QDialog):
         location_text = self.moment_location_input.text()
         magnitude_text = self.moment_mag_input.text()
         if not location_text:
-            # Show error message or just return
-            print("Error: Location input is required.")
+            QMessageBox.critical(self, "Input Error", "Location input is required.")
             return
         if not magnitude_text:
-            # Show error message or just return
-            print("Error: Magnitude input is required.")
+            QMessageBox.critical(self, "Input Error", "Magnitude input is required.")
             return
         try:
             x_pos = float(location_text)
             magnitude = float(magnitude_text)
         except ValueError:
-            print("Error: Location and Magnitude must be a number.")
+            QMessageBox.critical(self, "Input Error", "Location and Magnitude must be a number.")
+            return
+
+        if not (0 <= x_pos <= self.beam_model.length):
+            QMessageBox.critical(self, "Input Error", f"Location must be between 0 and {self.beam_model.length}.")
             return
 
         
@@ -479,10 +489,31 @@ class addDistLoadDialogue(QDialog):
 
     def accept(self):
         #user input 
-        start_location = float(self.start_location_input.text())
-        end_location = float(self.end_location_input.text())
-        w0 = float(self.start_mag_input.text())
-        wL = float(self.end_mag_input.text())
+        start_location_text = self.start_location_input.text()
+        end_location_text = self.end_location_input.text()
+        w0_text = self.start_mag_input.text()
+        wL_text = self.end_mag_input.text()
+
+        if not all([start_location_text, end_location_text, w0_text, wL_text]):
+            QMessageBox.critical(self, "Input Error", "All fields are required.")
+            return
+
+        try:
+            start_location = float(start_location_text)
+            end_location = float(end_location_text)
+            w0 = float(w0_text)
+            wL = float(wL_text)
+        except ValueError:
+            QMessageBox.critical(self, "Input Error", "All inputs must be numbers.")
+            return
+
+        if not (0 <= start_location <= self.beam_model.length and 0 <= end_location <= self.beam_model.length):
+            QMessageBox.critical(self, "Input Error", f"Locations must be between 0 and {self.beam_model.length}.")
+            return
+
+        if start_location >= end_location:
+            QMessageBox.critical(self, "Input Error", "Start location must be less than end location.")
+            return
 
         node_positions = self.beam_model.get_node_positions()
 

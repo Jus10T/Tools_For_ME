@@ -20,7 +20,7 @@ class MainWindow(QMainWindow):
         update_sidebar_styles(self, 0, self.sidebuttons)
 
     def setup_Window(self):
-         self.setGeometry(50,50,1400,700)
+         self.setGeometry(150,150,1400,700)
          self.setWindowTitle("Tools For ME")
 
 
