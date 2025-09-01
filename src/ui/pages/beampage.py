@@ -12,6 +12,8 @@ from src.ui.style.pagestyling import set_dropdown_style, set_lineEdit_style, set
 from src.core.calculations.unit_factors import (beam_dropdown_units)
 from src.ui.dialogs.beamdialogs import (pinnedSupportDialogue, rollerSupportDialogue, fixedSupportDialogue,
                                     addPointLoadDialogue, addMomentLoadDialogue, addDistLoadDialogue)
+from src.core.models.beam_model import BeamModel, BeamElement
+from src.ui.dialogs.results_dialog import ResultsDialog
 
 class BeamPage(QWidget):
     def __init__(self):
@@ -217,7 +219,7 @@ class BeamPage(QWidget):
         add_pinned_btn = QPushButton()
         add_pinned_btn.setObjectName("pinned_support_btn")
         setButtonStyle(add_pinned_btn)
-        add_pinned_btn.setIcon(QIcon(QPixmap("assets/icons/pinnedicon.png")))
+        add_pinned_btn.setIcon(QIcon(QPixmap("Equations-for-ME/assets/icons/pinnedicon.png")))
         add_pinned_btn.setIconSize(QSize(40, 40))
         add_pinned_btn.setMaximumWidth(150)
         add_pinned_btn.setMinimumWidth(150)
@@ -227,7 +229,7 @@ class BeamPage(QWidget):
         add_roller_btn = QPushButton()
         add_roller_btn.setObjectName("roller_support_btn")
         setButtonStyle(add_roller_btn)
-        add_roller_btn.setIcon(QIcon(QPixmap("assets/icons/rollericon.png")))
+        add_roller_btn.setIcon(QIcon(QPixmap("Equations-for-ME/assets/icons/rollericon.png")))
         add_roller_btn.setIconSize(QSize(40, 40))
         add_roller_btn.setMaximumWidth(150)
         add_roller_btn.setMinimumWidth(150)
@@ -238,7 +240,7 @@ class BeamPage(QWidget):
         add_fixed_btn = QPushButton()
         add_fixed_btn.setObjectName("fixed_support_btn")
         setButtonStyle(add_fixed_btn)
-        add_fixed_btn.setIcon(QIcon(QPixmap("assets/icons/fixedicon.png")))
+        add_fixed_btn.setIcon(QIcon(QPixmap("Equations-for-ME/assets/icons/fixedicon.png")))
         add_fixed_btn.setIconSize(QSize(40, 40))
         add_fixed_btn.setMaximumWidth(150)
         add_fixed_btn.setMinimumWidth(150)
@@ -252,7 +254,7 @@ class BeamPage(QWidget):
         add_point_btn = QPushButton()
         add_point_btn.setObjectName("point_load_btn")
         setButtonStyle(add_point_btn)
-        add_point_btn.setIcon(QIcon(QPixmap("assets/icons/pointloadicon.png")))
+        add_point_btn.setIcon(QIcon(QPixmap("Equations-for-ME/assets/icons/pointloadicon.png")))
         add_point_btn.setIconSize(QSize(40, 30))
         add_point_btn.setMaximumWidth(150)
         add_point_btn.setMinimumWidth(150)
@@ -263,7 +265,7 @@ class BeamPage(QWidget):
         add_moment_btn = QPushButton()
         add_moment_btn.setObjectName("moment_load_btn")
         setButtonStyle(add_moment_btn)
-        add_moment_btn.setIcon(QIcon(QPixmap("assets/icons/momentloadicon.png")))
+        add_moment_btn.setIcon(QIcon(QPixmap("Equations-for-ME/assets/icons/momentloadicon.png")))
         add_moment_btn.setIconSize(QSize(40, 30))
         add_moment_btn.setMaximumWidth(150)
         add_moment_btn.setMinimumWidth(150)
@@ -274,7 +276,7 @@ class BeamPage(QWidget):
         add_dist_btn = QPushButton()
         add_dist_btn.setObjectName("distributed_load_btn")
         setButtonStyle(add_dist_btn)
-        add_dist_btn.setIcon(QIcon(QPixmap("assets/icons/distloadicon.png")))
+        add_dist_btn.setIcon(QIcon(QPixmap("Equations-for-ME/assets/icons/distloadicon.png")))
         add_dist_btn.setIconSize(QSize(40, 30))
         add_dist_btn.setMaximumWidth(150)
         add_dist_btn.setMinimumWidth(150)
@@ -359,7 +361,12 @@ class BeamPage(QWidget):
         self.beam_model.assemble()
         self.beam_model.apply_boundary_conditions()
         self.beam_model.solve()
-        self.beam_model.print_results()
+
+        results = self.beam_model.get_results()
+        dialog = ResultsDialog(results, self)
+        dialog.exec()
+
+        #self.beam_model.print_results()
         print("--- Analysis Complete ---")
 
     def update_beam_labels(self, system):
@@ -459,40 +466,53 @@ class BeamPage(QWidget):
 
     def make_beam_table(self):
         """Update the beam table with current beam model data"""
-        
-        
-        if not hasattr(self, 'beam_model'):
+        if not hasattr(self, 'beam_model') or self.beam_model is None:
+            self.beam_table.setRowCount(0)
             return
 
-        rows = []
-
-        # Get node positions
+        self.beam_table.setRowCount(0)
         node_positions = self.beam_model.get_node_positions()
+        row_count = 0
 
         # Supports
-        for node_idx, support_type in self.beam_model.supports.items():
+        for node_idx, support_type in sorted(self.beam_model.supports.items()):
+            self.beam_table.insertRow(row_count)
             location = node_positions[node_idx] if node_idx < len(node_positions) else "?"
-            rows.append([f"{location:.2f}", "", support_type, ""])  # Magnitude is blank, support type in 3rd col
+            self.beam_table.setItem(row_count, 0, QTableWidgetItem(f"{location:.2f}"))
+            self.beam_table.setItem(row_count, 1, QTableWidgetItem(""))
+            self.beam_table.setItem(row_count, 2, QTableWidgetItem(support_type))
+            self.beam_table.setItem(row_count, 3, QTableWidgetItem(""))
+            
+            delete_btn = QPushButton("Delete")
+            delete_btn.clicked.connect(lambda checked, idx=node_idx: self.delete_support(idx))
+            self.beam_table.setCellWidget(row_count, 4, delete_btn)
+            row_count += 1
 
         # Point Loads and Moments
-        for dof_idx, value in self.beam_model.point_loads.items():
+        for dof_idx, value in sorted(self.beam_model.point_loads.items()):
+            self.beam_table.insertRow(row_count)
             node_idx = dof_idx // 2
             is_moment = (dof_idx % 2 == 1)
             location = node_positions[node_idx] if node_idx < len(node_positions) else "?"
             load_type = "Moment" if is_moment else "Point Load"
-            rows.append([f"{location:.2f}", f"{value:.2f}", "", load_type])  # Magnitude in 2nd col, load type in 4th
+            
+            self.beam_table.setItem(row_count, 0, QTableWidgetItem(f"{location:.2f}"))
+            self.beam_table.setItem(row_count, 1, QTableWidgetItem(f"{value:.2f}"))
+            self.beam_table.setItem(row_count, 2, QTableWidgetItem(""))
+            self.beam_table.setItem(row_count, 3, QTableWidgetItem(load_type))
+
+            delete_btn = QPushButton("Delete")
+            delete_btn.clicked.connect(lambda checked, idx=dof_idx: self.delete_point_load(idx))
+            self.beam_table.setCellWidget(row_count, 4, delete_btn)
+            row_count += 1
 
         # Distributed Loads (grouped)
         dist_loads = self.beam_model.distributed_loads
         elements = self.beam_model.elements
-        node_positions = self.beam_model.get_node_positions()
-
-        # Sort element indices for proper grouping
+        
         sorted_elem_indices = sorted(dist_loads.keys())
-
         grouped = []
         if sorted_elem_indices:
-            # Start first group
             group_start = sorted_elem_indices[0]
             group_end = group_start
             w0_group, _ = dist_loads[group_start]
@@ -500,36 +520,52 @@ class BeamPage(QWidget):
 
             for idx in sorted_elem_indices[1:]:
                 w0, wL = dist_loads[idx]
-                # Check if this element is contiguous and load is compatible
                 if idx == group_end + 1 and abs(w0 - wL_prev) < 1e-8:
-                    # Continue group
                     group_end = idx
                     wL_prev = wL
                 else:
-                    # Finish previous group
                     grouped.append((group_start, group_end, w0_group, wL_prev))
-                    # Start new group
                     group_start = idx
                     group_end = idx
                     w0_group = w0
                     wL_prev = wL
-            # Add last group
             grouped.append((group_start, group_end, w0_group, wL_prev))
 
-            # Add to table
             for group_start, group_end, w0, wL in grouped:
+                self.beam_table.insertRow(row_count)
                 elem_start = elements[group_start]
                 elem_end = elements[group_end]
                 x_start = node_positions[elem_start.node_start.index]
                 x_end = node_positions[elem_end.node_end.index]
                 location = f"[{x_start:.2f} | {x_end:.2f}]"
                 magnitude = f"[{w0:.2f} | {wL:.2f}]"
-                rows.append([location, magnitude, "", "Distributed Load"])
+                
+                self.beam_table.setItem(row_count, 0, QTableWidgetItem(location))
+                self.beam_table.setItem(row_count, 1, QTableWidgetItem(magnitude))
+                self.beam_table.setItem(row_count, 2, QTableWidgetItem(""))
+                self.beam_table.setItem(row_count, 3, QTableWidgetItem("Distributed Load"))
 
-        self.beam_table.setRowCount(len(rows))
-        for row_idx, row_data in enumerate(rows):
-            for col_idx, value in enumerate(row_data):
-                self.beam_table.setItem(row_idx, col_idx, QTableWidgetItem(str(value)))
+                delete_btn = QPushButton("Delete")
+                delete_btn.clicked.connect(lambda checked, start=group_start, end=group_end: self.delete_dist_load_group(start, end))
+                self.beam_table.setCellWidget(row_count, 4, delete_btn)
+                row_count += 1
+
+    def delete_support(self, node_idx):
+        if self.beam_model and node_idx in self.beam_model.supports:
+            del self.beam_model.supports[node_idx]
+            self.make_beam_table()
+
+    def delete_point_load(self, dof_idx):
+        if self.beam_model and dof_idx in self.beam_model.point_loads:
+            del self.beam_model.point_loads[dof_idx]
+            self.make_beam_table()
+
+    def delete_dist_load_group(self, start_idx, end_idx):
+        if self.beam_model:
+            keys_to_delete = [i for i in range(start_idx, end_idx + 1) if i in self.beam_model.distributed_loads]
+            for key in keys_to_delete:
+                del self.beam_model.distributed_loads[key]
+            self.make_beam_table()
 
         
 
@@ -628,232 +664,3 @@ class BeamPage(QWidget):
 
 
 
-
-class BeamModel:
-    def __init__(self, length, num_elements, EI, unit_sys, poi=None):
-        self.length = length
-        self.num_elements = num_elements
-        self.EI = EI 
-        self.unit_system = unit_sys
-        self.nodes = [Node(i) for i in range(num_elements + 1 )]
-
-        #discretize the beam model into elements
-        self.elements = [
-            BeamElement(i, self.nodes[i], self.nodes[i + 1], EI, length / num_elements)
-            for i in range(num_elements)
-        ]
-
-        if poi is not None:
-            self.insert_node_at_position(poi)
-
-        self.supports = {} #node_index: 'fixed'/'pinned'/'roller'
-        self.point_loads = {} # dof_index: load
-        self.distributed_loads = {} #element_index : (w0, wL)
-        self.ndof = 2 * len(self.nodes)
-        self.K = np.zeros((self.ndof, self.ndof))
-        self.F = np.zeros(self.ndof)
-        self.d = np.zeros(self.ndof)
-
-    def get_node_positions(self):
-        x_positions = [0.00]
-        for elem in self.elements:
-            x_positions.append(x_positions[-1] + elem.L)
-        return x_positions
-
-    def insert_node_at_position(self, x_pos, tol = 1e-6): # tol --> tolerance 
-        x_positions = self.get_node_positions()
-
-        #check if node exists
-        for i, x in enumerate(x_positions):
-            if abs(x - x_pos) < tol:
-                return i #return existing node index
-        
-        #find element to split
-        for e_idx, elem in enumerate(self.elements):
-            x_start = x_positions[elem.node_start.index]
-            x_end = x_positions[elem.node_end.index]
-            if x_start < x_pos < x_end:
-                break
-        else:
-            raise ValueError(f"x = {x_pos} is outside the beam domain.")
-        
-        #Create new node
-        new_node_index = len(self.nodes)
-        new_node = Node(new_node_index)
-        self.nodes.insert(elem.node_end.index, new_node)
-
-        #  Split the element
-        L1 = x_pos - x_start
-        L2 = x_end - x_pos
-        ei = elem.EI
-
-        e1 = BeamElement(len(self.elements), elem.node_start, new_node, ei, L1)
-        e2 = BeamElement(len(self.elements) + 1, new_node, elem.node_end, ei, L2)
-
-        # 5. Replace old element with the two new elements
-        self.elements.pop(e_idx)
-        self.elements.insert(e_idx, e2)
-        self.elements.insert(e_idx, e1)
-
-        #  Re-index all nodes and elements
-        for i, node in enumerate(self.nodes):
-            node.index = i
-            node.dofs = [2 * i, 2 * i + 1]
-
-        for i, elem in enumerate(self.elements):
-            elem.index = i
-
-        #  Rebuild global DOFs and matrices
-        self.ndof = 2 * len(self.nodes)
-        self.K = np.zeros((self.ndof, self.ndof))
-        self.F = np.zeros(self.ndof)
-        self.d = np.zeros(self.ndof)
-
-        return new_node_index
-
-    def add_support(self, node_index, support_type):
-        self.supports[node_index] = support_type
-
-
-    def add_point_load(self, node_index, value, moment=False):
-        dof = 2 * node_index + (1 if moment else 0)
-        # Apply negative for downward force convention
-        load_value = -value if not moment else value
-        self.point_loads[dof] = self.point_loads.get(dof, 0) + load_value
-
-    def add_moment_load(self, node_index, moment_value):
-        self.add_point_load(node_index, moment_value, moment=True)
-
-    def add_distributed_load(self, element_index, w0, wL):
-        self.distributed_loads[element_index] = (w0, wL)
-
-    def assemble(self):
-        for elem in self.elements:
-            k_local = elem.stiffness_matrix()
-            dof_map = elem.dof_map()
-            for i in range(4):
-                for j in range(4):
-                    self.K[dof_map[i], dof_map[j]] += k_local[i, j]
-
-            if elem.index in self.distributed_loads:
-                w0, wL = self.distributed_loads[elem.index]
-                f_local = elem.distributed_load_vector(w0, wL)
-                for i in range(4):
-                    self.F[dof_map[i]] += f_local[i]
-
-        for dof, load in self.point_loads.items():
-            self.F[dof] += load
-
-    def apply_boundary_conditions(self):
-        self.prescribed_dofs = []
-        for node_index, support in self.supports.items():
-            if support in ['fixed', 'pinned', 'roller']: # constraining vertical displacement
-                self.prescribed_dofs.append(2 * node_index)
-            if support == 'fixed':                       # constraining rotational displacememt
-                self.prescribed_dofs.append(2 * node_index + 1)
-
-        self.free_dofs = [i for i in range(self.ndof) if i not in self.prescribed_dofs]
-        self.K_ff = self.K[np.ix_(self.free_dofs, self.free_dofs)]
-        self.F_f = self.F[self.free_dofs]
-
-    def solve(self):
-        self.d[self.free_dofs] = np.linalg.solve(self.K_ff, self.F_f)
-        self.reactions = self.K @ self.d - self.F
-
-    def print_results(self):
-        print("Nodal Displacements:")
-        node_positions = self.get_node_positions()
-        for i in range(len(self.nodes)):
-            x_pos = node_positions[i]
-            v = self.d[2*i]
-            theta = self.d[2*i+1]
-            print(f"Node {i} (x={x_pos:.2f}): v = {v:.6e}, θ = {theta:.6e}")
-        print("\nSupport Reactions:")
-        for i in self.prescribed_dofs:
-            # Determine if it's a force or moment reaction for clearer output
-            node_idx = i // 2
-            x_pos = node_positions[node_idx]
-            if i % 2 == 0:
-                # Vertical force reaction
-                print(f"Reaction Force at Node {node_idx} (x={x_pos:.2f}): R = {self.reactions[i]:.2f}")
-            else:
-                # Moment reaction
-                print(f"Reaction Moment at Node {node_idx} (x={x_pos:.2f}): M = {self.reactions[i]:.2f}")
-
-    def calculate_shear_and_moment(self):
-        """Calculates shear and moment at each node using element-level results."""
-        num_nodes = len(self.nodes)
-        shear = np.zeros(num_nodes)
-        moment = np.zeros(num_nodes)
-
-        for i, elem in enumerate(self.elements):
-            dof_map = elem.dof_map()
-            d_elem = self.d[dof_map]
-            k_local = elem.stiffness_matrix()
-            w0, wL = self.distributed_loads.get(i, (0, 0))
-            f_load_local = elem.distributed_load_vector(w0, wL)
-            f_elem = k_local @ d_elem - f_load_local
-
-            if i == 0:
-                shear[i] = f_elem[0]
-                moment[i] = f_elem[1]
-
-            shear[i+1] = -f_elem[2]
-            moment[i+1] = f_elem[3]
-            
-        return shear, moment
-
-
-class Node:
-    def __init__(self, index):
-        self.index = index
-        self.dofs = [2 * index, 2 * index + 1 ] #vertical, rotation
-
-
-class BeamElement: 
-    def __init__(self, index, node_start, node_end, EI, L):
-        self.index = index
-        self.node_start = node_start
-        self.node_end = node_end
-        self.EI = EI
-        self.L = L
-
-    def stiffness_matrix(self):
-        L, EI = self.L, self.EI
-        coeff = EI / L**3
-        return coeff * np.array([
-            [12,    6*L,   -12,   6*L],
-            [6*L,  4*L**2, -6*L,  2*L**2],
-            [-12,  -6*L,   12,  -6*L],
-            [6*L,  2*L**2, -6*L,  4*L**2],
-        ])
-    
-    def dof_map(self):
-        return self.node_start.dofs + self.node_end.dofs
-    
-    def distributed_load_vector(self, w0, wL):
-        L = self.L
-        return np.array([
-            (L/20) * (7*w0 + 3*wL),
-            (L**2/60) * (3*w0 + 2*wL),
-            (L/20) * (3*w0 + 7*wL),
-            -(L**2/60) * (2*w0 + 3*wL)
-        ])
-
-
-
-
-
-        
-
-
-
-
-
-
-
-                 
-
-
-
-        
