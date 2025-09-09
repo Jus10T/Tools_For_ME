@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
 from src.ui.pages.thermopage import ThermoPage
 from src.ui.pages.unitspage import UnitSolverPage
 from src.ui.pages.beampage import BeamPage
+from src.ui.pages.ohmspage import OhmPage
 from src.ui.style.pagestyling import update_sidebar_styles
 
 
@@ -20,7 +21,7 @@ class MainWindow(QMainWindow):
         update_sidebar_styles(self, 0, self.sidebuttons)
 
     def setup_Window(self):
-         self.setGeometry(150,150,1400,700)
+         self.setGeometry(150,150,1100,700)
          self.setWindowTitle("Tools For ME")
 
 
@@ -94,9 +95,10 @@ class MainWindow(QMainWindow):
         self.unitbutton = QPushButton("- Units")
         self.thermobutton  = QPushButton("- Thermodynamics")
         self.beamsbutton = QPushButton("- Beams")
+        self.ohmbutton = QPushButton("- Ohm's Law")
 
         #for button style    
-        self.sidebuttons = [self.unitbutton, self.thermobutton, self.beamsbutton]
+        self.sidebuttons = [self.unitbutton, self.thermobutton, self.beamsbutton, self.ohmbutton]
 
         
 
@@ -104,11 +106,13 @@ class MainWindow(QMainWindow):
         sidebar_layout.addWidget(self.unitbutton)
         sidebar_layout.addWidget(self.thermobutton)
         sidebar_layout.addWidget(self.beamsbutton)
+        sidebar_layout.addWidget(self.ohmbutton)
 
         #connect buttons to page switching
         self.unitbutton.clicked.connect(lambda: self.switchPage(0))
         self.thermobutton.clicked.connect(lambda: self.switchPage(1))
         self.beamsbutton.clicked.connect(lambda: self.switchPage(2))
+        self.ohmbutton.clicked.connect(lambda: self.switchPage(3))
 
         #add stretch after buttons
         sidebar_layout.addStretch()
@@ -135,11 +139,13 @@ class MainWindow(QMainWindow):
         self.unitpage = UnitSolverPage()
         self.thermopage = ThermoPage()
         self.beampage = BeamPage()
+        self.ohmpage = OhmPage()
 
         #add pages to stack
         self.main_content_stack.addWidget(self.unitpage)
         self.main_content_stack.addWidget(self.thermopage)
         self.main_content_stack.addWidget(self.beampage)
+        self.main_content_stack.addWidget(self.ohmpage)
 
         return content_frame
     

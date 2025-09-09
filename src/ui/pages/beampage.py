@@ -362,7 +362,7 @@ class BeamPage(QWidget):
         self.beam_model.apply_boundary_conditions()
         self.beam_model.solve()
 
-        results = self.beam_model.get_results()
+        results = self.beam_model.get_plot_results()
         dialog = ResultsDialog(results, self)
         dialog.exec()
 

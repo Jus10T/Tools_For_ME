@@ -91,7 +91,10 @@ unit_types_abrv = {'English':{'Length': {'inches':"in",
                                        'minutes': "min",
                                        'hours': "hr",
                                        'days': "day",
-                                       'weeks': "wk"}
+                                       'weeks': "wk"},
+
+                              'Moment of Inertia': {'inches⁴': "in⁴",
+                                                    'millimeters⁴': "mm⁴"}
                                          },
                          
                 'Metric/SI':{'Length': {'nanometers':"nm",

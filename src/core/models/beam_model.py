@@ -27,8 +27,10 @@ class BeamModel:
 
     def get_node_positions(self):
         x_positions = [0.00]
+        current_pos = 0.0
         for elem in self.elements:
-            x_positions.append(x_positions[-1] + elem.L)
+            current_pos += elem.L
+            x_positions.append(current_pos)
         return x_positions
 
     def insert_node_at_position(self, x_pos, tol = 1e-6): # tol --> tolerance 
@@ -99,6 +101,8 @@ class BeamModel:
         self.distributed_loads[element_index] = (w0, wL)
 
     def assemble(self):
+        self.K.fill(0)
+        self.F.fill(0)
         for elem in self.elements:
             k_local = elem.stiffness_matrix()
             dof_map = elem.dof_map()
@@ -128,83 +132,53 @@ class BeamModel:
         self.F_f = self.F[self.free_dofs]
 
     def solve(self):
+        self.d.fill(0)
         self.d[self.free_dofs] = np.linalg.solve(self.K_ff, self.F_f)
         self.reactions = self.K @ self.d - self.F
 
-    def print_results(self):
-        print("Nodal Displacements:")
+    def get_plot_results(self, num_points_per_element=2):
+        x_plot = []
+        v_plot = []  # Displacements
+        s_plot = []  # Slopes
+        shear_plot = []
+        moment_plot = []
+
         node_positions = self.get_node_positions()
-        for i in range(len(self.nodes)):
-            x_pos = node_positions[i]
-            v = self.d[2*i]
-            theta = self.d[2*i+1]
-            print(f"Node {i} (x={x_pos:.2f}): v = {v:.6e}, θ = {theta:.6e}")
-        print("\nSupport Reactions:")
-        for i in self.prescribed_dofs:
-            # Determine if it's a force or moment reaction for clearer output
-            node_idx = i // 2
-            x_pos = node_positions[node_idx]
-            if i % 2 == 0:
-                # Vertical force reaction
-                print(f"Reaction Force at Node {node_idx} (x={x_pos:.2f}): R = {self.reactions[i]:.2f}")
-            else:
-                # Moment reaction
-                print(f"Reaction Moment at Node {node_idx} (x={x_pos:.2f}): M = {self.reactions[i]:.2f}")
-
-        print("\nInternal Shear and Moment:")
-        shear, moment = self.calculate_shear_and_moment()
-        for i in range(len(self.nodes)):
-            x_pos = node_positions[i]
-            print(f"Node {i} (x={x_pos:.2f}): Shear = {shear[i]:.2f}, Moment = {moment[i]:.2f}")
-
-    def calculate_shear_and_moment(self):
-        """Calculates shear and moment at each node using element-level results."""
-        num_nodes = len(self.nodes)
-        shear = np.zeros(num_nodes)
-        moment = np.zeros(num_nodes)
 
         for i, elem in enumerate(self.elements):
             dof_map = elem.dof_map()
             d_elem = self.d[dof_map]
-            k_local = elem.stiffness_matrix()
             w0, wL = self.distributed_loads.get(i, (0, 0))
-            f_load_local = elem.distributed_load_vector(w0, wL)
-            f_elem = k_local @ d_elem - f_load_local
 
-            if i == 0:
-                shear[i] = f_elem[0]
-                moment[i] = f_elem[1]
-
-            shear[i+1] = -f_elem[2]
-            moment[i+1] = f_elem[3]
+            x_start = node_positions[elem.node_start.index]
             
-        return shear, moment
-    
-    def get_results(self):
-        displacements = self.d[0::2] #deflection
-        slopes = self.d[1::2] #beam slope
+            x_local = np.linspace(0, elem.L, num_points_per_element)
+            x_global = x_start + x_local
 
-        shear, moment = self.calculate_shear_and_moment() #internal forces and bending moments
-        node_positions = self.get_node_positions()
+            # Displacement and Slope
+            v_local, s_local = elem.shape_functions(x_local, d_elem)
+            v_plot.extend(v_local)
+            s_plot.extend(s_local)
+            x_plot.extend(x_global)
+
+            # Shear and Moment
+            shear_local, moment_local = elem.internal_forces(x_local, d_elem, w0, wL)
+            shear_plot.extend(shear_local)
+            moment_plot.extend(moment_local)
 
         return {
-            "node_positions": node_positions,
-            "displacements": displacements,
-            "slopes": slopes,
-            "shear_forces": shear,
-            "bending_moments": moment,
+            "node_positions": x_plot,
+            "displacements": v_plot,
+            "slopes": s_plot,
+            "shear_forces": shear_plot,
+            "bending_moments": moment_plot,
             "unit_system": self.unit_system
         }
-
-
-
-
 
 class Node:
     def __init__(self, index):
         self.index = index
         self.dofs = [2 * index, 2 * index + 1 ] #vertical, rotation
-
 
 class BeamElement: 
     def __init__(self, index, node_start, node_end, EI, L):
@@ -229,10 +203,50 @@ class BeamElement:
     
     def distributed_load_vector(self, w0, wL):
         L = self.L
+        # Equivalent nodal forces for a linearly distributed load
         return np.array([
-            (L/20) * (7*w0 + 3*wL),
-            (L**2/60) * (3*w0 + 2*wL),
-            (L/20) * (3*w0 + 7*wL),
-            -(L**2/60) * (2*w0 + 3*wL)
+            -((L/20) * (7*w0 + 3*wL)),
+            -((L**2/60) * (3*w0 + 2*wL)),
+            -((L/20) * (3*w0 + 7*wL)),
+            ((L**2/60) * (2*w0 + 3*wL))
         ])
+
+    def shape_functions(self, x, d_elem):
+        L = self.L
+        v1, th1, v2, th2 = d_elem
+
+        N1 = 1 - 3*(x/L)**2 + 2*(x/L)**3
+        N2 = x * (1 - 2*(x/L) + (x/L)**2)
+        N3 = 3*(x/L)**2 - 2*(x/L)**3
+        N4 = x * ((x/L)**2 - (x/L))
+
+        v_x = v1*N1 + th1*N2 + v2*N3 + th2*N4
+
+        # Derivatives for slope
+        dN1_dx = (-6*x/L**2) + (6*x**2/L**3)
+        dN2_dx = 1 - 4*x/L + 3*x**2/L**2
+        dN3_dx = (6*x/L**2) - (6*x**2/L**3)
+        dN4_dx = 3*x**2/L**2 - 2*x/L
+
+        s_x = v1*dN1_dx + th1*dN2_dx + v2*dN3_dx + th2*dN4_dx
         
+        return v_x, s_x
+
+    def internal_forces(self, x, d_elem, w0, wL):
+        L = self.L
+        k_local = self.stiffness_matrix()
+        f_load_local = self.distributed_load_vector(w0, wL)
+        f_elem = k_local @ d_elem - f_load_local
+
+        V_start = f_elem[0]
+        M_start = f_elem[1]
+
+        # Contribution from distributed load at distance x
+        V_dist = (w0 * x) + ((wL - w0) * x**2 / (2 * L))
+        M_dist = (w0 * x**2 / 2) + ((wL - w0) * x**3 / (6 * L))
+
+        # Shear and moment along the element
+        V_x = V_start - V_dist
+        M_x = M_start + V_start * x - M_dist
+
+        return V_x, M_x
